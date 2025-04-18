@@ -11,8 +11,10 @@
 *.mlmodel
 *.tflite
 *.checkpoint
-*.jpg
+# *.jpg
 # Ignore model directories
+*/uploads/
+*/results/
 models/
 checkpoints/
 pretrained/
@@ -21,8 +23,7 @@ weights/
 *.swp
 *.swo
 *~
-*.jpg
-*.png
+
 # Python cache
 __pycache__/
 *.py[cod]

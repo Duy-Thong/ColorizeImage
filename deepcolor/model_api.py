@@ -1,7 +1,7 @@
 import os
 import sys
 import cv2
-import numpy as np
+import numpy  as np
 from skimage import color
 from flask import Flask, request, jsonify, send_file, session
 from werkzeug.utils import secure_filename
@@ -465,10 +465,78 @@ def suggest_colors():
     return jsonify({"error": "Invalid file format"}), 400
 
 
-@app.route("/results/<filename>", methods=["GET"])
-def get_result(filename):
-    """Serve the resulting images"""
-    return send_file(os.path.join(app.config["RESULTS_FOLDER"], filename))
+@app.route("/get_session_image", methods=["GET"])
+def get_session_image():
+    """
+    Endpoint to retrieve the original image associated with a session ID.
+    Used to restore projects without requiring the user to re-upload the original image.
+    """
+    session_id = request.form.get("session_id")
+    original_file_name = request.form.get("original_file_name")
+
+    # If form data is empty, try to get from URL parameters
+    if not session_id:
+        session_id = request.args.get("session_id")
+    if not original_file_name:
+        original_file_name = request.args.get("original_file_name")
+
+    if not session_id:
+        return jsonify({"error": "Session ID is required"}), 400
+
+    if not original_file_name:
+        return jsonify({"error": "Original file name is required"}), 400
+
+    # Look for the file in the active_files dictionary if available
+    file_path = None
+    if session_id in active_files:
+        file_path = active_files[session_id]["upload_path"]
+    else:
+        # Fall back to constructing the path from the session_id and original filename
+        file_path = os.path.join(
+            app.config["UPLOAD_FOLDER"], f"session_{session_id}_{original_file_name}"
+        )
+
+    # Check if the file exists
+    if not os.path.exists(file_path):
+        # Try direct filename as fallback
+        direct_path = os.path.join(app.config["UPLOAD_FOLDER"], original_file_name)
+        if not os.path.exists(direct_path):
+            return jsonify({"error": "Image not found"}), 404
+        file_path = direct_path
+
+    # Determine the mime type based on file extension
+    mime_type = "image/jpeg"  # Default
+    if original_file_name.lower().endswith(".png"):
+        mime_type = "image/png"
+    elif original_file_name.lower().endswith((".jpg", ".jpeg")):
+        mime_type = "image/jpeg"
+
+    return send_file(file_path, mimetype=mime_type)
+
+
+@app.route("/get_result_file", methods=["GET"])
+def get_result():
+    """
+    Serve the resulting colorized images for a specific session.
+    This endpoint is used to retrieve colorized results when reopening saved projects.
+    """
+    # Try to get session_id from form data first, then from URL parameters
+    session_id = request.form.get("session_id")
+    if not session_id:
+        session_id = request.args.get("session_id")
+    
+    if not session_id:
+        return jsonify({"error": "Session ID is required"}), 400
+        
+    filename = "result_" + session_id + ".jpg"
+    result_path = os.path.join(app.config["RESULTS_FOLDER"], filename)
+    
+    # Check if result file exists
+    if not os.path.exists(result_path):
+        return jsonify({"error": "Colorized result not found for this session"}), 404
+        
+    # Serve the file with appropriate content type
+    return send_file(result_path, mimetype="image/jpeg")
 
 
 if __name__ == "__main__":

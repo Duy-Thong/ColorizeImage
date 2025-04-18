@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getDatabase, ref, get } from "firebase/database";
+import { getDatabase, ref, get, push, set } from "firebase/database";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useUser } from '../../contexts/UserContext';
 import { useNavigate } from 'react-router-dom';
-import { Typography, Upload, Button, message, Spin, Alert, Modal, ColorPicker, Slider, Tooltip } from 'antd';
-import { UploadOutlined, HighlightOutlined, SendOutlined, ReloadOutlined, BgColorsOutlined, DeleteOutlined, DragOutlined, DownloadOutlined, EyeOutlined, BulbOutlined, SwapLeftOutlined} from '@ant-design/icons';
+import { Typography, Upload, Button, message, Spin, Alert, Modal, ColorPicker, Slider, Tooltip, Input, List, Avatar, Card } from 'antd';
+import { UploadOutlined, HighlightOutlined, SendOutlined, ReloadOutlined, BgColorsOutlined, DeleteOutlined, DragOutlined, DownloadOutlined, EyeOutlined, BulbOutlined, SwapLeftOutlined, SaveOutlined, ShareAltOutlined, FacebookOutlined, TwitterOutlined, FolderOutlined, FolderOpenOutlined} from '@ant-design/icons';
 import axios from 'axios';
 import { ReactCompareSlider, ReactCompareSliderImage } from 'react-compare-slider';
 
@@ -26,17 +27,26 @@ const Home = () => {
     const [colorizedImage, setColorizedImage] = useState('');
     const [isColorizing, setIsColorizing] = useState(false);
     const [isAutoColorizing, setIsAutoColorizing] = useState(false); // Add state for auto colorization
+    const [isSaving, setIsSaving] = useState(false); // Add state for saving
+    const [projectName, setProjectName] = useState(''); // Add state for project name
+    const [showSaveModal, setShowSaveModal] = useState(false); // Add state for save modal
     const [apiError, setApiError] = useState(null);
     const [retryCount, setRetryCount] = useState(0);
     const [showColorPicker, setShowColorPicker] = useState(false); // Re-add the missing state
     const imageRef = useRef(null);
     const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
-    const [colorPoints, setColorPoints] = useState([]);    const [draggingPointIndex, setDraggingPointIndex] = useState(null); // State to track dragged point index
+    const [colorPoints, setColorPoints] = useState([]);
+    const [draggingPointIndex, setDraggingPointIndex] = useState(null); // State to track dragged point index
     const [editingPointIndex, setEditingPointIndex] = useState(null); // Add state for tracking which point is being edited
     const [colorSuggestions, setColorSuggestions] = useState([]);
     const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
     const [sessionId, setSessionId] = useState(null); // Add state for session ID
     const [showCompareModal, setShowCompareModal] = useState(false);
+    const [showProjectsModal, setShowProjectsModal] = useState(false);
+    const [savedProjects, setSavedProjects] = useState([]);
+    const [loadingProjects, setLoadingProjects] = useState(false);
+    const [selectedProject, setSelectedProject] = useState(null);
+    const [currentProjectId, setCurrentProjectId] = useState(null); // Add state to track current project ID
 
     useEffect(() => {
         if (userId) {
@@ -103,25 +113,77 @@ const Home = () => {
     };
 
     const handleUpload = ({ file }) => {
-        // We don't need to call beforeUpload here anymore as Ant Design's Upload component
-        // now waits for our promise to resolve/reject before proceeding with the upload
+        // If we're in a project, confirm before proceeding
+        if (currentProjectId) {
+            Modal.confirm({
+                title: 'Bạn muốn làm gì với ảnh mới?',
+                content: (
+                    <div>
+                        <p>Bạn đang chỉnh sửa một dự án. Bạn muốn:</p>
+                        <ul className="list-disc pl-5 mt-2">
+                            <li>Tạo dự án mới với ảnh mới này</li>
+                            <li>Cập nhật dự án hiện tại với ảnh mới (giữ các điểm màu hiện có)</li>
+                        </ul>
+                    </div>
+                ),
+                okText: 'Cập nhật dự án hiện tại',
+                cancelText: 'Tạo dự án mới',
+                onOk() {
+                    // Update current project with new image
+                    handleImageUploadForExistingProject(file);
+                },
+                onCancel() {
+                    // Create new project with new image (reset project data)
+                    const localPath = URL.createObjectURL(file);
+                    setImageFile(file);
+                    setImagePreview(localPath);
+                    setSelectedPoint(null);
+                    setColorizedImage('');
+                    setColorPoints([]); // Reset color points
+                    setApiError(null);
+                    setRetryCount(0);
+                    setSessionId(null); // Reset session ID
+                    setCurrentProjectId(null); // Reset current project ID
+                    setProjectName(''); // Reset project name
+                    
+                    // Read the file to get image dimensions
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const img = new Image();
+                        img.onload = () => {
+                            setImageSize({ 
+                                width: img.width, 
+                                height: img.height,
+                                normalizedWidth: 256,
+                                normalizedHeight: 256
+                            });
+                        };
+                        img.src = reader.result;
+                    };
+                    reader.readAsDataURL(file);
+                    // Store the file name for reference 
+                    setImagePath("D:\\\\Learning\\\\ideepcolor\\\\test_img\\\\" + file.name);
+                },
+            });
+            return;
+        }
+
+        // Normal upload flow for new projects (no current project)
         const localPath = URL.createObjectURL(file);
         setImageFile(file);
         setImagePreview(localPath);
         setSelectedPoint(null);
         setColorizedImage('');
-        setColorPoints([]); // Reset color points when uploading a new image
-        setApiError(null); // Reset API error on new upload
-        setRetryCount(0); // Reset retry count
-        setSessionId(null); // Reset session ID to start a new session with each image upload
+        setColorPoints([]);
+        setApiError(null);
+        setRetryCount(0);
+        setSessionId(null);
         
-        // Read the file to get image dimensions and data
+        // Read the file to get image dimensions
         const reader = new FileReader();
         reader.onload = () => {
             const img = new Image();
             img.onload = () => {
-                // Save the original dimensions, but normalize for backend processing
-                // The model expects 256x256 resolution
                 setImageSize({ 
                     width: img.width, 
                     height: img.height,
@@ -134,6 +196,10 @@ const Home = () => {
         reader.readAsDataURL(file);
         // Store the file name for reference 
         setImagePath("D:\\\\Learning\\\\ideepcolor\\\\test_img\\\\" + file.name);
+
+        // Reset project info when uploading a new image without a current project
+        setCurrentProjectId(null);
+        setProjectName('');
     };
 
     const handleImageClick = (e) => {
@@ -691,6 +757,309 @@ const Home = () => {
         }
     };
 
+    const handleSaveProject = async () => {
+      if (!userId || !imageFile) {
+        message.warning('Cần tải lên ảnh để lưu dự án');
+        return;
+      }
+      
+      if (!sessionId) {
+        message.error('Không thể lưu dự án: thiếu session ID');
+        return;
+      }
+      
+      try {
+        setIsSaving(true);
+        const db = getDatabase();
+        
+        // Lưu thông tin dự án vào database (không bao gồm ảnh)
+        const projectData = {
+          sessionId,
+          colorPoints: colorPoints || [], // Ensure it's always an array even if empty
+          updatedAt: new Date().toISOString(),
+          name: projectName || `Dự án ngày ${new Date().toLocaleDateString('vi-VN')}`,
+          originalFilename: imageFile.name // Chỉ lưu tên file gốc để tham khảo
+        };
+        
+        // Thêm URL ảnh đã tô màu nếu có (không lưu file thật)
+        if (colorizedImage) {
+          projectData.hasColorizedResult = true;
+        }
+        
+        let projectRef;
+        
+        // Nếu đang mở một dự án có sẵn, cập nhật dự án đó thay vì tạo mới
+        if (currentProjectId) {
+          projectRef = ref(db, `color-projects/${userId}/${currentProjectId}`);
+          // Giữ lại ngày tạo ban đầu của dự án
+          const snapshot = await get(projectRef);
+          if (snapshot.exists()) {
+            projectData.createdAt = snapshot.val().createdAt;
+          } else {
+            projectData.createdAt = new Date().toISOString();
+          }
+          await set(projectRef, projectData);
+          message.success('Đã cập nhật dự án tô màu thành công!');
+        } else {
+          // Tạo dự án mới
+          projectData.createdAt = new Date().toISOString();
+          const projectsRef = ref(db, `color-projects/${userId}`);
+          const newProjectRef = push(projectsRef);
+          await set(newProjectRef, projectData);
+          // Cập nhật ID của dự án hiện tại
+          setCurrentProjectId(newProjectRef.key);
+          message.success('Đã lưu dự án tô màu thành công!');
+        }
+        
+        setShowSaveModal(false);
+      } catch (error) {
+        console.error('Error saving project:', error);
+        message.error('Lỗi khi lưu dự án. Vui lòng thử lại.');
+      } finally {
+        setIsSaving(false);
+      }
+    };
+    
+    const handleShareResult = async () => {
+      if (!colorizedImage) {
+        message.error('Vui lòng tô màu ảnh trước khi chia sẻ!');
+        return;
+      }
+      
+      // Tạo modal chia sẻ với nút mạng xã hội
+      Modal.confirm({
+        title: 'Chia sẻ kết quả tô màu',
+        content: (
+          <div className="flex flex-col gap-4 mt-4">
+            <p>Bạn muốn chia sẻ kết quả tô màu này tới đâu?</p>
+            <div className="flex justify-center gap-3">
+              <Button 
+                icon={<FacebookOutlined />} 
+                onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank')}
+              >
+                Facebook
+              </Button>
+              <Button 
+                icon={<TwitterOutlined />}
+                onClick={() => window.open(`https://twitter.com/intent/tweet?text=Tôi vừa tô màu ảnh đen trắng bằng AI!&url=${encodeURIComponent(window.location.href)}`, '_blank')}
+              >
+                Twitter
+              </Button>
+            </div>
+          </div>
+        ),
+        footer: null,
+      });
+    };
+
+    // Function to fetch saved projects
+    const fetchSavedProjects = async () => {
+      if (!userId) return;
+      
+      setLoadingProjects(true);
+      try {
+        const db = getDatabase();
+        const projectsRef = ref(db, `color-projects/${userId}`);
+        const snapshot = await get(projectsRef);
+        
+        if (snapshot.exists()) {
+          const projectsData = snapshot.val();
+          // Convert Firebase object to array with IDs
+          const projectsArray = Object.keys(projectsData).map(key => ({
+            id: key,
+            ...projectsData[key],
+            createdAt: new Date(projectsData[key].createdAt)
+          }));
+          
+          // Sort by creation date (newest first)
+          projectsArray.sort((a, b) => b.createdAt - a.createdAt);
+          
+          setSavedProjects(projectsArray);
+        } else {
+          setSavedProjects([]);
+          message.info('Không tìm thấy dự án đã lưu nào.');
+        }
+      } catch (error) {
+        console.error('Error fetching saved projects:', error);
+        message.error('Không thể tải dự án đã lưu. Vui lòng thử lại.');
+      } finally {
+        setLoadingProjects(false);
+      }
+    };
+    
+    // Function to open the projects modal
+    const handleOpenProjects = () => {
+      fetchSavedProjects();
+      setShowProjectsModal(true);
+    };
+    
+    // Function to load a selected project
+    const handleLoadProject = async (project) => {
+      if (!project || !project.sessionId) {
+        message.error('Dự án không hợp lệ hoặc thiếu session ID');
+        return;
+      }
+      
+      try {
+        setLoading(true);
+        setSelectedProject(project);
+        
+        // Reset current state
+        setColorPoints([]);
+        setColorizedImage('');
+        setSelectedPoint(null);
+        setApiError(null);
+        
+        // Set session ID from the project
+        setSessionId(project.sessionId);
+        
+        // Set project name and ID for later editing
+        setProjectName(project.name || '');
+        setCurrentProjectId(project.id);
+        
+        // Load the original image using the session ID and original filename
+        const imageLoaded = await loadImageWithSessionId(project.sessionId, project.originalFilename);
+        
+        // Load the colorized result if the project has one
+        if (project.hasColorizedResult) {
+          try {
+            const resultUrl = `http://127.0.0.1:5000/get_result_file?session_id=${project.sessionId}`;
+            const response = await fetch(resultUrl);
+            
+            if (response.ok) {
+              const resultBlob = await response.blob();
+              const colorizedUrl = URL.createObjectURL(resultBlob);
+              setColorizedImage(colorizedUrl);
+              message.success('Đã tải kết quả tô màu từ dự án!');
+            } else {
+              console.warn('Could not load colorized result:', response.status);
+            }
+          } catch (error) {
+            console.error('Error loading colorized result:', error);
+            message.warning('Không thể tải kết quả tô màu đã lưu.');
+          }
+        }
+        
+        // Set color points from the project only after successfully loading the image or if we have points
+        if (project.colorPoints && project.colorPoints.length > 0) {
+          setColorPoints(project.colorPoints);
+          
+          // If image failed to load but we have points, show a more detailed error
+          if (!imageLoaded) {
+            message.warning(
+              'Không thể tải ảnh gốc từ máy chủ, nhưng điểm màu đã được tải. Bạn cần tải lại ảnh đen trắng gốc để tiếp tục.',
+              7
+            );
+          }
+        }
+        
+        // Close the modal on either success or partial success
+        setShowProjectsModal(false);
+        
+        // If we couldn't load the image and we closed the modal, remind the user to upload the original
+        if (!imageLoaded && !project.hasColorizedResult) {
+          setTimeout(() => {
+            message.info('Hãy tải lên ảnh đen trắng gốc để tiếp tục chỉnh sửa dự án này', 5);
+          }, 1000);
+        }
+      } catch (error) {
+        console.error('Error loading project:', error);
+        message.error('Không thể tải dự án. Vui lòng thử lại.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Helper function to load image data using session ID
+    const loadImageWithSessionId = async (sessionId, originalFilename) => {
+      if (!sessionId) return false;
+
+      try {
+        // First, try to fetch the last image used with this session from the server
+        const response = await axios.get(
+          `http://127.0.0.1:5000/get_session_image?session_id=${sessionId}&original_file_name=${encodeURIComponent(originalFilename || 'unknown.jpg')}`,
+          { responseType: 'blob' }
+        );
+        
+        if (response.status === 200) {
+          // Create a file from the blob
+          const imageBlob = response.data;
+          const file = new File([imageBlob], originalFilename || 'project-image.jpg', { 
+            type: imageBlob.type || 'image/jpeg' 
+          });
+          
+          // Set up the image preview as if it was uploaded
+          const localPath = URL.createObjectURL(imageBlob);
+          setImageFile(file);
+          setImagePreview(localPath);
+          
+          // Read the file to get image dimensions
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+              setImageSize({ 
+                width: img.width, 
+                height: img.height,
+                normalizedWidth: 256,
+                normalizedHeight: 256
+              });
+            };
+            img.src = reader.result;
+          };
+          reader.readAsDataURL(file);
+          
+          message.success('Dự án đã được tải. Sẵn sàng tiếp tục chỉnh sửa!');
+          return true;
+        } else {
+          throw new Error('Không thể tải ảnh từ máy chủ.');
+        }
+      } catch (error) {
+        console.error('Error fetching image with session ID:', error);
+        message.warning('Không thể tải ảnh dự án từ máy chủ. Vui lòng tải lại ảnh gốc để tiếp tục.', 5);
+        return false;
+      }
+    };
+
+    // Add this function to reset the state when a project fails to load completely
+    const handleImageUploadForExistingProject = (file) => {
+        if (!currentProjectId || !sessionId) {
+            // This shouldn't happen with our new flow, but keep as safety
+            return handleUpload({ file });
+        }
+        
+        // Special handling for uploads during project editing
+        const localPath = URL.createObjectURL(file);
+        setImageFile(file);
+        setImagePreview(localPath);
+        
+        // Keep existing color points but reset result
+        setColorizedImage('');
+        setApiError(null);
+        setRetryCount(0);
+        
+        // Read dimensions
+        const reader = new FileReader();
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+                setImageSize({ 
+                    width: img.width, 
+                    height: img.height,
+                    normalizedWidth: 256,
+                    normalizedHeight: 256
+                });
+            };
+            img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+        
+        message.success('Ảnh đã được cập nhật trong dự án hiện tại. Các điểm màu hiện có đã được giữ nguyên.');
+        
+        // Return false to prevent the default upload behavior
+        return false;
+    };
+
     if (loading) {
         return (
             <div className="flex justify-center items-center h-screen">
@@ -721,33 +1090,49 @@ const Home = () => {
 
             <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center">
                 <div className="text-center mb-8 mt-12 md:mt-16 px-4 w-full">
-                    <AntTitle level={2} className="text-gray-800 text-2xl sm:text-3xl md:text-4xl lg:text-5xl break-words">
-                        <span className="font-bold block sm:inline">Xin chào, </span>
-                        <span className="text-blue-600 block sm:inline mt-2 sm:mt-0">{username || 'User'}</span>
-                    </AntTitle>
+                    
                 </div>
 
-                <div className="w-full  bg-white bg-opacity-90 rounded-lg shadow-xl p-8 mb-10">
-                    <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">Tô màu ảnh đen trắng</h2>
+                <div className="w-5/6 glassmorphism bg-opacity-90 rounded-lg shadow-xl p-8 mb-10">
+                    <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
+                        Tô màu ảnh đen trắng
+                        {currentProjectId && (
+                            <span className="text-sm font-normal text-gray-600 block mt-1">
+                                Đang chỉnh sửa: {projectName || 'Dự án chưa đặt tên'}
+                            </span>
+                        )}
+                    </h2>
 
                     <div className="mb-8 flex flex-col items-center">
-                        <Upload
-                            beforeUpload={beforeUpload}
-                            customRequest={handleUpload}
-                            showUploadList={false}
-                            accept=".jpg,.jpeg,.png"
-                            className="w-full max-w-md flex flex-col items-center"
-                            disabled={isColorizing || isAutoColorizing} // Disable upload during any colorization
-                        >
-                            <Button 
-                                icon={<UploadOutlined />} 
-                                size="large" 
-                                className="w-full mb-3"
-                                disabled={isColorizing || isAutoColorizing} // Disable upload button too
+                        {/* Add button to open projects */}
+                        <div className="flex justify-center gap-4 mb-4 w-full max-w-md">
+                            <Upload
+                                beforeUpload={beforeUpload}
+                                customRequest={handleUpload}
+                                showUploadList={false}
+                                accept=".jpg,.jpeg,.png"
+                                className="flex-grow"
+                                disabled={isColorizing || isAutoColorizing}
                             >
-                                Chọn ảnh để tô màu
+                                <Button 
+                                    icon={<UploadOutlined />} 
+                                    size="large" 
+                                    className="w-full"
+                                    disabled={isColorizing || isAutoColorizing}
+                                >
+                                    Chọn ảnh để tô màu
+                                </Button>
+                            </Upload>
+                            
+                            <Button
+                                icon={<FolderOpenOutlined />}
+                                onClick={handleOpenProjects}
+                                size="large"
+                                disabled={isColorizing || isAutoColorizing}
+                            >
+                                Mở dự án
                             </Button>
-                        </Upload>
+                        </div>
                         <p className="text-sm text-gray-500 text-center">Hỗ trợ JPG, PNG (tối đa 5MB), dài rộng tối đa 2000px</p>
                     </div>
 
@@ -757,11 +1142,11 @@ const Home = () => {
                                 {/* --- Left Column: Image Preview and Point Selection --- */}
                                 <div className="mb-6">
                                     <h3 className="text-xl font-semibold text-gray-800 mb-4 text-center">
-                                        {colorPoints.length > 0 ? 'Thêm điểm tô màu' : 'Chọn điểm tô màu (Tùy chọn)'}
+                                        Ảnh gốc
                                     </h3>
                                     {/* ... existing image container div ... */}
                                     <div 
-                                        className={`relative border-2 border-blue-300 rounded-lg mx-auto overflow-hidden ${draggingPointIndex !== null ? 'border-dashed border-green-500' : ''}`} // Add visual feedback for drop zone
+                                        className={`relative border-2 glassmorphism border-blue-500 rounded-lg mx-auto overflow-hidden ${draggingPointIndex !== null ? 'border-dashed border-green-500' : ''}`} // Add visual feedback for drop zone
                                         style={{ 
                                             maxWidth: '100%', 
                                             cursor: selectedPoint ? 'default' : (isColorizing || isAutoColorizing ? 'wait' : (draggingPointIndex !== null ? 'grabbing' : 'crosshair')) // Change cursor during drag
@@ -869,7 +1254,7 @@ const Home = () => {
                                     <h3 className="text-xl font-semibold text-gray-800 mb-4 text-center">
                                         {isColorizing || isAutoColorizing ? 'Đang xử lý...' : (colorizedImage ? 'Kết quả tô màu' : 'Ảnh chưa tô màu')}
                                     </h3>
-                                    <div className={`flex-grow  ${isColorizing || isAutoColorizing ? 'border-yellow-400 animate-pulse' : (colorizedImage ? 'border-green-300' : 'border-gray-300')} rounded-lg border-2 mx-auto w-full flex items-center justify-center`} 
+                                    <div className={`flex-grow  ${isColorizing || isAutoColorizing ? 'border-yellow-500 animate-pulse' : (colorizedImage ? 'border-green-500' : 'border-gray-300')} rounded-lg border-1 mx-auto w-full flex items-center justify-center glassmorphism overflow-hidden`} 
                                        
                                     >
                                         {/* ... existing result display logic (Spin, Image, Placeholder) ... */}
@@ -886,10 +1271,10 @@ const Home = () => {
                                                     type="primary"
                                                     icon={<DownloadOutlined />}
                                                     onClick={handleDownloadImage}
-                                                    className="absolute bottom-2 right-2"
+                                                    className="absolute bottom-2 right-2 download-btn"
                                                     size="large"
                                                 >
-                                                    Tải xuống
+                                                    <span className="download-text">Tải xuống</span>
                                                 </Button>
                                             </div>
                                         ) : (
@@ -962,24 +1347,47 @@ const Home = () => {
                                                 onClick={handleMainColorize} 
                                                 size="large"
                                                 disabled={isColorizing || isAutoColorizing} 
-                                                className="w-full max-w-xs" // Give button reasonable width
+                                                className="w-full max-w-xs" // Give button reasonable widthw-fullth
                                             >
-                                                {colorPoints.length > 0 
-                                                    ? `Tô màu với điểm đã chọn (${colorPoints.length})` 
-                                                    : 'Tô màu tự động'}
+                                                Tô màu
                                             </Button>
                                             
                                             {/* Add Compare button - only show when we have a colorized image */}
                                             {colorizedImage && (
-                                                <Button
-                                                    type="default"
-                                                    icon={<SwapLeftOutlined />}
-                                                    onClick={() => setShowCompareModal(true)}
-                                                    size="large"
-                                                    className="max-w-xs"
-                                                >
-                                                    So sánh
-                                                </Button>
+                                                <>
+                                                    <Button
+                                                        type="default"
+                                                        icon={<SwapLeftOutlined />}
+                                                        onClick={() => setShowCompareModal(true)}
+                                                        size="large"
+                                                        className="max-w-xs"
+                                                    >
+                                                        So sánh
+                                                    </Button>
+                                                    
+                                                    {/* Add Save Project button */}
+                                                    <Button
+                                                        type="default"
+                                                        icon={<SaveOutlined />}
+                                                        onClick={() => setShowSaveModal(true)}
+                                                        size="large"
+                                                        className="max-w-xs"
+                                                        loading={isSaving}
+                                                    >
+                                                        Lưu
+                                                    </Button>
+                                                    
+                                                    {/* Add Share button */}
+                                                    <Button
+                                                        type="default"
+                                                        icon={<ShareAltOutlined />}
+                                                        onClick={handleShareResult}
+                                                        size="large"
+                                                        className="max-w-xs"
+                                                    >
+                                                        Chia sẻ
+                                                    </Button>
+                                                </>
                                             )}
                                         </div>
                                     )}
@@ -1000,62 +1408,40 @@ const Home = () => {
                                                 <p>Giải pháp có thể:</p>
                                                 <ol className="list-decimal pl-5">
                                                     <li>Kiểm tra máy chủ Python đã được khởi động</li>
-                                                    <li>Sửa cấu hình CORS trong máy chủ Python:</li>
-                                                    <code className="block bg-gray-100 p-3 mt-2 rounded">
-                                                        # Chỉ sử dụng MỘT trong hai cách sau:<br/>
-                                                        # Cách 1: Sử dụng Flask-CORS<br/>
-                                                        from flask_cors import CORS<br/>
-                                                        app = Flask(__name__)<br/>
-                                                        CORS(app, origins=["http://localhost:3000"])
-                                                    </code>
+                                                    <li>Kiểm tra cấu hình CORS trong máy chủ Python</li>
                                                 </ol>
                                             </div>
                                         )}
-                                        <Button 
-                                            className="mt-4"
-                                            icon={<ReloadOutlined />}
-                                            onClick={handleRetry}
-                                            disabled={isColorizing || isAutoColorizing} // Disable retry if any process is running
-                                        >
-                                            Thử lại {retryCount > 0 ? `(${retryCount})` : ''}
-                                        </Button>
                                     </div>
                                 }
                                 type="error"
                                 showIcon
-                                className="my-5"
+                                action={
+                                    <Button 
+                                        icon={<ReloadOutlined />} 
+                                        onClick={handleRetry}
+                                        type="primary"
+                                    >
+                                        Thử lại ({retryCount})
+                                    </Button>
+                                }
                             />
                         </div>
                     )}
                 </div>
             </div>
-
+            
+            {/* Color Picker Modal */}
             <Modal
-                title={editingPointIndex !== null ? "Chỉnh sửa màu điểm" : "Chọn màu"}
+                title="Chọn màu"
                 open={showColorPicker}
                 onCancel={() => {
                     setShowColorPicker(false);
                     setEditingPointIndex(null); // Reset editing index when canceling
-                    setSelectedPoint(null); // Also clear selected point when closing modal
+                    setSelectedPoint(null); // Also clear selected point when closing
                     setColorSuggestions([]); // Clear suggestions when closing
                 }}
                 footer={[
-                    // Add delete button in the footer when editing an existing point
-                    editingPointIndex !== null && (
-                        <Button 
-                            key="delete" 
-                            danger 
-                            icon={<DeleteOutlined />}
-                            onClick={() => {
-                                handleDeletePoint(editingPointIndex);
-                                // No need to explicitly set showColorPicker and editingPointIndex again
-                                // as handleDeletePoint already does this
-                            }}
-                            disabled={isColorizing || isAutoColorizing}
-                        >
-                            Xóa điểm này
-                        </Button>
-                    ),
                     <Button key="cancel" onClick={() => {
                         setShowColorPicker(false);
                         setEditingPointIndex(null); // Reset editing index when canceling
@@ -1155,20 +1541,23 @@ const Home = () => {
                         Đóng
                     </Button>
                 ]}
+                className="image-compare-modal" // Add a class for better styling
             >
                 <div className="mt-4 mb-6">
                     <p className="text-gray-600 mb-4 text-center">
                         Kéo qua lại để so sánh ảnh gốc và ảnh đã tô màu
                     </p>
-                    <div className="border border-gray-300 rounded-lg overflow-hidden">
+                    <div className="border border-gray-300 rounded-lg overflow-hidden compare-slider-container">
                         {imagePreview && colorizedImage && (
                             <ReactCompareSlider
                                 itemOne={<ReactCompareSliderImage src={imagePreview} alt="Ảnh gốc" />}
                                 itemTwo={<ReactCompareSliderImage src={colorizedImage} alt="Ảnh tô màu" />}
                                 position={50}
                                 style={{
-                                    height: '500px',
-                                    maxHeight: '70vh'
+                                    width: '100%',
+                                    height: 'auto',
+                                    maxHeight: '70vh',
+                                    aspectRatio: imageSize.width / imageSize.height
                                 }}
                             />
                         )}
@@ -1179,6 +1568,246 @@ const Home = () => {
                     </div>
                 </div>
             </Modal>
+            
+            {/* Add additional CSS for responsive comparison */}
+            <style jsx="true">{`
+                .checkerboard-bg {
+                    background-image: 
+                        linear-gradient(45deg, #ccc 25%, transparent 25%), 
+                        linear-gradient(-45deg, #ccc 25%, transparent 25%),
+                        linear-gradient(45deg, transparent 75%, #ccc 75%),
+                        linear-gradient(-45deg, transparent 75%, #ccc 75%);
+                    background-size: 10px 10px;
+                    background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
+                }
+                
+                /* Responsive styling for comparison slider */
+                @media (max-width: 768px) {
+                    .image-compare-modal .ant-modal-content {
+                        width: 95vw !important;
+                        margin: 0 auto;
+                    }
+                    
+                    .compare-slider-container {
+                        width: 100%;
+                        max-height: 80vh;
+                        overflow: hidden;
+                    }
+                    
+                    /* Better button spacing for mobile */
+                    .ant-btn {
+                        margin: 4px;
+                    }
+                    
+                    /* Make download button smaller on mobile */
+                    .download-btn {
+                        padding: 4px 8px !important;
+                        font-size: 12px !important;
+                        height: auto !important;
+                        min-height: 32px !important;
+                        bottom: 4px !important;
+                        right: 4px !important;
+                    }
+                    
+                    /* Make colorize/compare buttons smaller on tablets */
+                    .max-w-xs {
+                        font-size: 14px !important;
+                    }
+                }
+                
+                /* Additional adjustments for small mobile phones */
+                @media (max-width: 480px) {
+                    /* Download button - icon only */
+                    .download-btn {
+                        min-height: 32px !important;
+                        width: 32px !important;
+                        padding: 0 !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                    }
+                    
+                    .download-btn .download-text {
+                        display: none !important;
+                    }
+                    
+                    /* Fix colorize and compare buttons */
+                    .w-full.max-w-xs {
+                        font-size: 12px !important;
+                        padding: 0 10px !important;
+                        height: 36px !important;
+                        min-height: 36px !important;
+                    }
+                    
+                    /* Fix spacing between buttons */
+                    .flex.justify-center.w-full.gap-2 {
+                        gap: 6px !important;
+                    }
+                }
+                
+                /* Make sure colorize buttons have proper spacing and width */
+                @media (max-width: 480px) {
+                    .flex-grow.max-w-xs {
+                        min-width: 100px !important;
+                        max-width: 100% !important;
+                        flex-basis: auto !important;
+                        margin-bottom: 8px !important;
+                    }
+                }
+            `}</style>
+
+            {/* Add Save Project Modal */}
+            <Modal
+                title={currentProjectId ? "Cập nhật dự án tô màu" : "Lưu dự án tô màu"}
+                open={showSaveModal}
+                onCancel={() => setShowSaveModal(false)}
+                footer={[
+                    <Button key="cancel" onClick={() => setShowSaveModal(false)} disabled={isSaving}>
+                        Hủy
+                    </Button>,
+                    <Button 
+                        key="save" 
+                        type="primary" 
+                        loading={isSaving}
+                        onClick={handleSaveProject}
+                    >
+                        {currentProjectId ? 'Cập nhật' : 'Lưu dự án'}
+                    </Button>
+                ]}
+            >
+                <div className="py-4">
+                    <p className="mb-4">
+                        {currentProjectId 
+                            ? 'Cập nhật tên cho dự án tô màu này:' 
+                            : 'Đặt tên cho dự án tô màu này để dễ dàng tìm kiếm sau này:'}
+                    </p>
+                    <Input 
+                        placeholder="Tên dự án tô màu" 
+                        value={projectName}
+                        onChange={e => setProjectName(e.target.value)}
+                        maxLength={50}
+                        showCount
+                    />
+                    <div className="mt-4">
+                        <p className="text-sm text-gray-500">
+                            {currentProjectId 
+                                ? 'Dự án sẽ được cập nhật với các điểm màu và thiết lập hiện tại.'
+                                : 'Dự án sẽ lưu lại các điểm màu đã chọn và cài đặt hiện tại.'}
+                        </p>
+                    </div>
+                </div>
+            </Modal>
+        
+            {/* Add the Projects Modal */}
+            <Modal
+                title="Dự án đã lưu"
+                open={showProjectsModal}
+                onCancel={() => setShowProjectsModal(false)}
+                footer={[
+                    <Button key="close" onClick={() => setShowProjectsModal(false)}>
+                        Đóng
+                    </Button>
+                ]}
+                width={700}
+            >
+                {loadingProjects ? (
+                    <div className="flex justify-center py-8">
+                        <Spin size="large" tip="Đang tải dự án..." />
+                    </div>
+                ) : savedProjects.length > 0 ? (
+                    <List
+                        grid={{ gutter: 16, xs: 1, sm: 2, md: 2, lg: 2, xl: 3, xxl: 3 }}
+                        dataSource={savedProjects}
+                        renderItem={(project) => (
+                            <List.Item>
+                                <Card 
+                                    hoverable
+                                    style={{ width: '200px' }}
+                                    onClick={() => handleLoadProject(project)}
+                                    cover={<ProjectThumbnail project={project} />}
+                                >
+                                    <Card.Meta 
+                                        title={project.name}
+                                        description={
+                                            <div>
+                                                <p className="text-xs text-gray-500">
+                                                    {project.createdAt.toLocaleString('vi-VN')}
+                                                </p>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    {project.hasColorizedResult ? 
+                                                        <><BgColorsOutlined /> Có ảnh tô màu</> : 
+                                                        <>{project.colorPoints?.length || 0} điểm màu</>
+                                                    }
+                                                </p>
+                                            </div>
+                                        }
+                                    />
+                                </Card>
+                            </List.Item>
+                        )}
+                    />
+                ) : (
+                    <div className="text-center py-8">
+                        <p className="text-gray-500">Chưa có dự án nào được lưu.</p>
+                        <p className="text-gray-500 mt-2">Hãy tạo một dự án mới và sử dụng nút "Lưu" để lưu lại.</p>
+                    </div>
+                )}
+            </Modal>
+        </div>
+    );
+};
+
+// Add this new component for thumbnail with loading state
+const ProjectThumbnail = ({ project }) => {
+    const [thumbnail, setThumbnail] = useState(null);
+    const [loading, setLoading] = useState(true);
+    
+    useEffect(() => {
+        const fetchThumbnail = async () => {
+            if (!project.sessionId || !project.hasColorizedResult) {
+                setLoading(false);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`http://127.0.0.1:5000/get_result_file?session_id=${project.sessionId}`);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    setThumbnail(URL.createObjectURL(blob));
+                }
+            } catch (error) {
+                console.error('Error fetching thumbnail:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        
+        fetchThumbnail();
+    }, [project.sessionId, project.hasColorizedResult]);
+    
+    if (loading) {
+        return (
+            <div className="h-32 flex items-center justify-center bg-gray-50">
+                <Spin size="small" />
+            </div>
+        );
+    }
+    
+    if (thumbnail) {
+        return (
+            <div className="h-32 bg-gray-50 flex items-center justify-center overflow-hidden">
+                <img 
+                    src={thumbnail} 
+                    alt={project.name} 
+                    className="w-full h-full object-cover"
+                />
+            </div>
+        );
+    }
+    
+    return (
+        <div className="h-32 flex items-center justify-center bg-gray-100">
+            <FolderOutlined style={{ fontSize: '24px', color: '#1890ff' }} />
         </div>
     );
 };
