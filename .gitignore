@@ -15,7 +15,6 @@
 # Ignore model directories
 */uploads/
 */results/
-models/
 checkpoints/
 pretrained/
 weights/
@@ -47,3 +46,5 @@ tensorboard/
 
 # Ignore specific model file
 deepcolor/models/pytorch/caffemodel.pth
+
+!deepcolor/models/pytorch/model.py
