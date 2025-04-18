@@ -1267,15 +1267,7 @@ const Home = () => {
                                                     alt="Colorized" 
                                                     className="w-full h-auto rounded-lg object-contain" // Use object-contain
                                                 />
-                                                <Button
-                                                    type="primary"
-                                                    icon={<DownloadOutlined />}
-                                                    onClick={handleDownloadImage}
-                                                    className="absolute bottom-2 right-2 download-btn"
-                                                    size="large"
-                                                >
-                                                    <span className="download-text">Tải xuống</span>
-                                                </Button>
+                                                
                                             </div>
                                         ) : (
                                             <div className="text-center text-gray-500 p-4">
@@ -1337,9 +1329,9 @@ const Home = () => {
                                 </div>
 
                                 {/* --- Right Column (New Grid): Main Button --- */}
-                                <div className="flex items-center justify-center"> {/* Center button vertically and horizontally */}
+                                <div className="flex  items-center justify-center"> {/* Center button vertically and horizontally */}
                                     {imagePreview && !selectedPoint && (
-                                        <div className="flex justify-center w-full gap-2"> {/* Button container */}
+                                        <div className="flex flex-col justify-center w-full gap-2 items-center"> {/* Button container */}
                                             <Button
                                                 type="primary"
                                                 icon={colorPoints.length > 0 ? <HighlightOutlined /> : <BgColorsOutlined />}
@@ -1354,27 +1346,35 @@ const Home = () => {
                                             
                                             {/* Add Compare button - only show when we have a colorized image */}
                                             {colorizedImage && (
-                                                <>
+                                                <div className="action-buttons-group flex flex-wrap gap-2">
                                                     <Button
                                                         type="default"
                                                         icon={<SwapLeftOutlined />}
                                                         onClick={() => setShowCompareModal(true)}
                                                         size="large"
-                                                        className="max-w-xs"
+                                                        className="result-action-btn"
                                                     >
-                                                        So sánh
+                                                        <span className="btn-text">So sánh</span>
                                                     </Button>
-                                                    
+                                                    <Button
+                                                    type="primary"
+                                                    icon={<DownloadOutlined />}
+                                                    onClick={handleDownloadImage}
+                                                    className="result-action-btn"
+                                                    size="large"
+                                                >
+                                                    <span className="btn-text">Tải xuống</span>
+                                                </Button>
                                                     {/* Add Save Project button */}
                                                     <Button
                                                         type="default"
                                                         icon={<SaveOutlined />}
                                                         onClick={() => setShowSaveModal(true)}
                                                         size="large"
-                                                        className="max-w-xs"
+                                                        className="result-action-btn"
                                                         loading={isSaving}
                                                     >
-                                                        Lưu
+                                                        <span className="btn-text">Lưu</span>
                                                     </Button>
                                                     
                                                     {/* Add Share button */}
@@ -1383,11 +1383,11 @@ const Home = () => {
                                                         icon={<ShareAltOutlined />}
                                                         onClick={handleShareResult}
                                                         size="large"
-                                                        className="max-w-xs"
+                                                        className="result-action-btn"
                                                     >
-                                                        Chia sẻ
+                                                        <span className="btn-text">Chia sẻ</span>
                                                     </Button>
-                                                </>
+                                                </div>
                                             )}
                                         </div>
                                     )}
@@ -1654,6 +1654,67 @@ const Home = () => {
                         margin-bottom: 8px !important;
                     }
                 }
+                
+                // ...existing code...
+                
+                /* Responsive styles for action buttons */
+                .action-buttons-group {
+                    justify-content: center;
+                    width: 100%;
+                }
+                
+                .result-action-btn {
+                    flex: 1;
+                    min-width: 100px;
+                    max-width: 120px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                
+                @media (max-width: 640px) {
+                    .result-action-btn {
+                        min-width: 80px;
+                        padding: 0 12px;
+                        font-size: 13px;
+                    }
+                }
+                
+                @media (max-width: 480px) {
+                    .result-action-btn {
+                        min-width: auto;
+                        max-width: 40px;
+                        width: 40px;
+                        height: 40px;
+                        padding: 0;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    
+                    .result-action-btn .btn-text {
+                        display: none;
+                    }
+                    
+                    .action-buttons-group {
+                        justify-content: space-around;
+                    }
+                }
+                
+                /* Make sure buttons are still visible on very small screens */
+                @media (max-width: 360px) {
+                    .result-action-btn {
+                        width: 36px;
+                        height: 36px;
+                        margin: 0 2px;
+                    }
+                    
+                    .action-buttons-group {
+                        gap: 4px !important;
+                    }
+                }
+                
+                // ...existing code...
             `}</style>
 
             {/* Add Save Project Modal */}
