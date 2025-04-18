@@ -1593,7 +1593,6 @@ const Home = () => {
                                 style={{
                                     width: '100%',
                                     height: 'auto',
-                                    maxHeight: '70vh',
                                     aspectRatio: imageSize.width / imageSize.height
                                 }}
                             />
