@@ -3,8 +3,9 @@ import { getDatabase, ref, get } from "firebase/database";
 import { useUser } from '../../contexts/UserContext';
 import { useNavigate } from 'react-router-dom';
 import { Typography, Upload, Button, message, Spin, Alert, Modal, ColorPicker, Slider, Tooltip } from 'antd';
-import { UploadOutlined, HighlightOutlined, SendOutlined, ReloadOutlined, BgColorsOutlined, DeleteOutlined, DragOutlined, DownloadOutlined, EyeOutlined, BulbOutlined } from '@ant-design/icons';
+import { UploadOutlined, HighlightOutlined, SendOutlined, ReloadOutlined, BgColorsOutlined, DeleteOutlined, DragOutlined, DownloadOutlined, EyeOutlined, BulbOutlined, SwapLeftOutlined} from '@ant-design/icons';
 import axios from 'axios';
+import { ReactCompareSlider, ReactCompareSliderImage } from 'react-compare-slider';
 
 import Navbar from '../../components/Navbar';
 import RequireLogin from '../../components/RequireLogin';
@@ -35,6 +36,7 @@ const Home = () => {
     const [colorSuggestions, setColorSuggestions] = useState([]);
     const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
     const [sessionId, setSessionId] = useState(null); // Add state for session ID
+    const [showCompareModal, setShowCompareModal] = useState(false);
 
     useEffect(() => {
         if (userId) {
@@ -935,7 +937,7 @@ const Home = () => {
                                 {/* --- Right Column (New Grid): Main Button --- */}
                                 <div className="flex items-center justify-center"> {/* Center button vertically and horizontally */}
                                     {imagePreview && !selectedPoint && (
-                                        <div className="flex justify-center w-full"> {/* Button container */}
+                                        <div className="flex justify-center w-full gap-2"> {/* Button container */}
                                             <Button
                                                 type="primary"
                                                 icon={colorPoints.length > 0 ? <HighlightOutlined /> : <BgColorsOutlined />}
@@ -949,6 +951,19 @@ const Home = () => {
                                                     ? `Tô màu với điểm đã chọn (${colorPoints.length})` 
                                                     : 'Tô màu tự động'}
                                             </Button>
+                                            
+                                            {/* Add Compare button - only show when we have a colorized image */}
+                                            {colorizedImage && (
+                                                <Button
+                                                    type="default"
+                                                    icon={<SwapLeftOutlined />}
+                                                    onClick={() => setShowCompareModal(true)}
+                                                    size="large"
+                                                    className="max-w-xs"
+                                                >
+                                                    So sánh
+                                                </Button>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -1096,6 +1111,42 @@ const Home = () => {
                     background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
                 }
             `}</style>
+
+            {/* Modal for image comparison */}
+            <Modal
+                title="So sánh ảnh gốc và ảnh tô màu"
+                open={showCompareModal}
+                onCancel={() => setShowCompareModal(false)}
+                width={800}
+                footer={[
+                    <Button key="close" onClick={() => setShowCompareModal(false)}>
+                        Đóng
+                    </Button>
+                ]}
+            >
+                <div className="mt-4 mb-6">
+                    <p className="text-gray-600 mb-4 text-center">
+                        Kéo qua lại để so sánh ảnh gốc và ảnh đã tô màu
+                    </p>
+                    <div className="border border-gray-300 rounded-lg overflow-hidden">
+                        {imagePreview && colorizedImage && (
+                            <ReactCompareSlider
+                                itemOne={<ReactCompareSliderImage src={imagePreview} alt="Ảnh gốc" />}
+                                itemTwo={<ReactCompareSliderImage src={colorizedImage} alt="Ảnh tô màu" />}
+                                position={50}
+                                style={{
+                                    height: '500px',
+                                    maxHeight: '70vh'
+                                }}
+                            />
+                        )}
+                    </div>
+                    <div className="flex justify-between text-sm text-gray-500 mt-2 px-2">
+                        <span>Ảnh gốc</span>
+                        <span>Ảnh tô màu</span>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 };
