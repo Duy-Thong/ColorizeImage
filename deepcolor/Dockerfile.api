@@ -1,26 +1,19 @@
-FROM python:3.8-slim
+FROM python:3.9-buster
+
+ENV PORT 5000
 
 WORKDIR /app
+COPY ./scripts ./scripts
+COPY ./requirements.txt .
+COPY ./makefile .
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
+RUN apt-get update && apt-get install -y make
+RUN apt-get update && apt-get install ffmpeg libsm6 libxext6  -y
+Run bash -c "make fetch_model"
+RUN bash -c "make set_up"
+RUN bash -c "make authtoken"
 
-# Copy requirements first for better caching
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install flask gunicorn
-
-# Copy the application code
 COPY . .
-
-# Create required directories
-RUN mkdir -p uploads results
-
-# Expose port for the API
-EXPOSE 5000
-
-# Run with gunicorn for production
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "model_api:app"]
+EXPOSE $PORT

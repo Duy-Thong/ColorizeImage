@@ -3,12 +3,10 @@ import sys
 import cv2
 import numpy  as np
 from skimage import color
-from flask import Flask, request, jsonify, send_file, session
+from flask import Flask, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 import uuid
-import datetime
 from data import colorize_image as CI
-from io import BytesIO
 import base64
 from flask_cors import CORS
 
