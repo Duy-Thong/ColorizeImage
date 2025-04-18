@@ -288,6 +288,10 @@ const Home = () => {
     // Function to delete a color point by index
     const handleDeletePoint = (indexToDelete) => {
         setColorPoints(prevPoints => prevPoints.filter((_, index) => index !== indexToDelete));
+        // Reset UI state to ensure list and buttons are shown
+        setSelectedPoint(null);
+        setShowColorPicker(false);
+        setEditingPointIndex(null);
         message.info('Điểm màu đã được xóa.');
     };
 
@@ -778,26 +782,36 @@ const Home = () => {
                                         {/* Display existing color points on the image */}
                                         {colorPoints.map((cp, index) => (
                                             <div 
-                                                key={`point-${index}`} // Use a more specific key
-                                                className={`absolute w-5 h-5 rounded-full border-2 border-white shadow-lg flex items-center justify-center ${!(isColorizing || isAutoColorizing) ? 'cursor-move' : 'cursor-not-allowed'}`} // Add move cursor
+                                                key={`point-${index}`}
+                                                className={`absolute w-5 h-5 rounded-full border-2 border-white shadow-lg flex items-center justify-center ${!(isColorizing || isAutoColorizing) ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                                                 style={{
                                                     backgroundColor: cp.displayColor,
-                                                    // Calculate position based on displayPoint and current image dimensions
                                                     left: `${(cp.displayPoint.x / imageSize.width) * 100}%`, 
                                                     top: `${(cp.displayPoint.y / imageSize.height) * 100}%`,
-                                                    transform: 'translate(-50%, -50%)', // Center the dot on the point
+                                                    transform: 'translate(-50%, -50%)',
                                                     zIndex: 10,
                                                     display: imagePreview === colorizedImage ? 'none' : 'block',
-                                                    opacity: draggingPointIndex === index ? 0.5 : 1 // Dim the original point while dragging
+                                                    opacity: draggingPointIndex === index ? 0.5 : 1
                                                 }}
-                                                title={`Kéo để di chuyển | Nhấp đôi để đổi màu | Màu: ${cp.displayColor}`} // Update tooltip to mention double-click
-                                                draggable={!(isColorizing || isAutoColorizing)} // Make draggable only when not processing
-                                                onDragStart={(e) => handleDragStart(e, index)} // Add drag start handler
-                                                onDragEnd={handleDragEnd} // Add drag end handler
-                                                onDoubleClick={(e) => handlePointDoubleClick(e, index)} // Add double click handler
+                                                title={`Nhấp để sửa/xóa | Kéo để di chuyển | Nhấp đôi để đổi màu | Màu: ${cp.displayColor}`}
+                                                draggable={!(isColorizing || isAutoColorizing)}
+                                                onDragStart={(e) => handleDragStart(e, index)}
+                                                onDragEnd={handleDragEnd}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (!(isColorizing || isAutoColorizing)) {
+                                                        setEditingPointIndex(index);
+                                                        setSelectedPoint(cp.displayPoint);
+                                                        setSelectedColor(cp.displayColor);
+                                                        setShowColorPicker(true);
+                                                    }
+                                                }}
+                                                onDoubleClick={(e) => handlePointDoubleClick(e, index)}
                                             >
-                                                {/* Optional: Add a small drag icon inside */}
-                                                {/* <DragOutlined style={{ fontSize: '10px', color: 'white' }} /> */}
+                                                {/* Display point number */}
+                                                <span className="text-xs font-bold text-white" style={{ textShadow: '0px 0px 2px black' }}>
+                                                    {index + 1}
+                                                </span>
                                             </div>
                                         ))}
 
@@ -904,12 +918,15 @@ const Home = () => {
                                             <ul className="space-y-2 max-h-40 overflow-y-auto px-2">
                                                 {colorPoints.map((cp, index) => (
                                                     <li key={`list-${index}`} className="flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-200">
-                                                        {/* ... list item content ... */}
                                                         <div className="flex items-center gap-2">
                                                             <div 
-                                                                className="w-5 h-5 rounded border border-gray-400" 
+                                                                className="w-5 h-5 rounded border border-gray-400 flex items-center justify-center" 
                                                                 style={{ backgroundColor: cp.displayColor }}
-                                                            ></div>
+                                                            >
+                                                                <span className="text-xs font-bold text-white" style={{ textShadow: '0px 0px 2px black' }}>
+                                                                    {index + 1}
+                                                                </span>
+                                                            </div>
                                                             <span className="text-sm text-gray-600">
                                                                 Màu: {cp.displayColor} (X: {cp.displayPoint.x}, Y: {cp.displayPoint.y}) {/* Show coordinates */}
                                                             </span>
@@ -1019,12 +1036,30 @@ const Home = () => {
                 onCancel={() => {
                     setShowColorPicker(false);
                     setEditingPointIndex(null); // Reset editing index when canceling
+                    setSelectedPoint(null); // Also clear selected point when closing modal
                     setColorSuggestions([]); // Clear suggestions when closing
                 }}
                 footer={[
+                    // Add delete button in the footer when editing an existing point
+                    editingPointIndex !== null && (
+                        <Button 
+                            key="delete" 
+                            danger 
+                            icon={<DeleteOutlined />}
+                            onClick={() => {
+                                handleDeletePoint(editingPointIndex);
+                                // No need to explicitly set showColorPicker and editingPointIndex again
+                                // as handleDeletePoint already does this
+                            }}
+                            disabled={isColorizing || isAutoColorizing}
+                        >
+                            Xóa điểm này
+                        </Button>
+                    ),
                     <Button key="cancel" onClick={() => {
                         setShowColorPicker(false);
                         setEditingPointIndex(null); // Reset editing index when canceling
+                        setSelectedPoint(null); // Also clear selected point when closing
                         setColorSuggestions([]); // Clear suggestions when closing
                     }} disabled={isColorizing || isAutoColorizing}>
                         Hủy
@@ -1037,7 +1072,7 @@ const Home = () => {
                         // No loading state needed here
                         disabled={isColorizing || isAutoColorizing}
                     >
-                        {editingPointIndex !== null ? 'Cập nhật màu điểm' : 'Xác nhận điểm màu'}
+                        {editingPointIndex !== null ? 'Cập nhật ' : 'Xác nhận'}
                     </Button>,
                 ]}
             >
@@ -1053,10 +1088,7 @@ const Home = () => {
                         />
                     </div>
                     
-                    <div 
-                        className="w-16 h-16 rounded-full border-2 border-gray-300 checkerboard-bg"
-                        style={{ backgroundColor: selectedColor }}
-                    ></div>
+                   
                     
                     {/* Add suggestions section */}
                     <div className="w-full border-t border-gray-200 pt-4 mt-2">
