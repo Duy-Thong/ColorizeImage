@@ -1,0 +1,47 @@
+# Model files
+*.model
+*.pth
+*.pt
+*.h5
+*.pb
+*.onnx
+*.weights
+*.bin
+*.caffemodel
+*.mlmodel
+*.tflite
+*.checkpoint
+*.jpg
+# Ignore model directories
+models/
+checkpoints/
+pretrained/
+weights/
+# Temporary files
+*.swp
+*.swo
+*~
+*.jpg
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Training logs
+logs/
+tensorboard/
+
+# Ignore specific model file
+deepcolor/models/pytorch/caffemodel.pth
