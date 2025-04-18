@@ -64,8 +64,45 @@ const Home = () => {
                     setError("Không thể tải dữ liệu. Vui lòng thử lại sau.");
                 })
                 .finally(() => setLoading(false));
+                
+            // Check for project ID in URL parameters
+            const params = new URLSearchParams(window.location.search);
+            const projectId = params.get('projectId');
+            if (projectId) {
+                loadProjectById(projectId);
+            }
         }
     }, [userId]);
+    
+    // Add new method to load project by ID from URL parameter
+    const loadProjectById = async (projectId) => {
+        if (!userId || !projectId) return;
+        
+        setLoading(true);
+        try {
+            const db = getDatabase();
+            const projectRef = ref(db, `color-projects/${userId}/${projectId}`);
+            const snapshot = await get(projectRef);
+            
+            if (snapshot.exists()) {
+                const project = {
+                    id: projectId,
+                    ...snapshot.val()
+                };
+                
+                // Use the existing handleLoadProject function to load the project data
+                await handleLoadProject(project);
+                message.success('Đã tải dự án từ liên kết!');
+            } else {
+                message.error('Dự án không tồn tại hoặc bạn không có quyền truy cập.');
+            }
+        } catch (error) {
+            console.error('Error loading project from URL:', error);
+            message.error('Không thể tải dự án từ liên kết. Vui lòng thử lại.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleLogout = () => {
         logout();

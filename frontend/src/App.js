@@ -10,6 +10,7 @@ import RequireLogin from './components/RequireLogin';
 import './App.css';
 import LoginAdmin from './pages/Admin/LoginAdmin';
 import AdminDashboard from './pages/Admin/AdminDashboard';
+import Projects from './pages/Projects/Projects'; // Import the new Projects component
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -58,6 +59,12 @@ function AppContent() {
           </ProtectedRoute>
         } />
         
+        {/* Add new route for Projects page */}
+        <Route path="/projects" element={
+          <ProtectedRoute>
+            <Projects />
+          </ProtectedRoute>
+        } />
         
         <Route path="/account-management" element={
           <ProtectedRoute>

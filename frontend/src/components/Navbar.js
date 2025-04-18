@@ -34,7 +34,9 @@ const Navbar = ({ onLogout }) => {
     const handleAccountManagement = () => {
         navigate('/account-management');
     };
-
+    const handleProjectManagement = () => {
+        navigate('/projects'); // Navigate to the Projects page
+    }
     const handleLogout = () => {
         localStorage.removeItem('userId'); // Remove userId from localStorage
         setPhotoURL(null); // Reset photoURL when logging out
@@ -74,7 +76,8 @@ const Navbar = ({ onLogout }) => {
             <Menu.Item key="1" onClick={handleAccountManagement} style={menuItemStyle}>
                 Quản lý tài khoản
             </Menu.Item>
-            <Menu.Item key="2" onClick={handleLogout} style={menuItemStyle}>
+            <Menu.Item key="2" onClick={handleProjectManagement} style={menuItemStyle}> Quản lý dự án tô màu</Menu.Item>
+            <Menu.Item key="3" onClick={handleLogout} style={menuItemStyle}>
                 Đăng xuất
             </Menu.Item>
         </Menu>
@@ -86,12 +89,12 @@ const Navbar = ({ onLogout }) => {
                 className="navbar-title"
                 onClick={handleTitleClick} // Add click handler for title
             >
-                <img src={ptit} alt="logo" className='h-12'/>
+                <img src={ptit} alt="logo" className='h-12' />
             </div>
             <div>
                 <Dropdown overlay={menu} trigger={['click']}>
-                    <Avatar 
-                        size={48} 
+                    <Avatar
+                        size={48}
                         icon={<UserOutlined />}
                         src={photoURL}
                         style={{ cursor: 'pointer' }}
