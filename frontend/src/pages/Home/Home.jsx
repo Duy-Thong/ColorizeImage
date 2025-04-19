@@ -92,7 +92,7 @@ const Home = () => {
                 
                 // Use the existing handleLoadProject function to load the project data
                 await handleLoadProject(project);
-                message.success('Đã tải dự án từ liên kết!');
+                // message.success('Đã tải dự án từ liên kết!');
             } else {
                 message.error('Dự án không tồn tại hoặc bạn không có quyền truy cập.');
             }
@@ -967,7 +967,7 @@ const Home = () => {
               const resultBlob = await response.blob();
               const colorizedUrl = URL.createObjectURL(resultBlob);
               setColorizedImage(colorizedUrl);
-              message.success('Đã tải kết quả tô màu từ dự án!');
+            //   message.success('Đã tải kết quả tô màu từ dự án!');
             } else {
               console.warn('Could not load colorized result:', response.status);
             }
@@ -1142,22 +1142,22 @@ const Home = () => {
 
                     <div className="mb-8 flex flex-col items-center">
                         {/* Add button to open projects */}
-                        <div className="flex justify-center gap-4 mb-4 w-full max-w-md">
+                        <div className="flex flex-row justify-center items-center gap-2 sm:gap-4 mb-4 w-full max-w-md">
                             <Upload
                                 beforeUpload={beforeUpload}
                                 customRequest={handleUpload}
                                 showUploadList={false}
                                 accept=".jpg,.jpeg,.png"
-                                className="flex-grow"
+                                className="flex-1 flex justify-center items-center"
                                 disabled={isColorizing || isAutoColorizing}
                             >
                                 <Button 
                                     icon={<UploadOutlined />} 
                                     size="large" 
-                                    className="w-full"
+                                    className="w-full flex justify-center items-center"
                                     disabled={isColorizing || isAutoColorizing}
                                 >
-                                    Chọn ảnh để tô màu
+                                    <span className="hidden md:inline">Chọn ảnh để tô màu</span>
                                 </Button>
                             </Upload>
                             
@@ -1165,11 +1165,14 @@ const Home = () => {
                                 icon={<FolderOpenOutlined />}
                                 onClick={handleOpenProjects}
                                 size="large"
+                                className="flex-1 flex justify-center items-center"
                                 disabled={isColorizing || isAutoColorizing}
                             >
-                                Mở dự án
+                                <span className="hidden sm:hidden md:inline">Mở dự án</span>
                             </Button>
                         </div>
+                        
+                        
                         <p className="text-sm text-gray-500 text-center">Hỗ trợ JPG, PNG (tối đa 5MB), dài rộng tối đa 2000px</p>
                     </div>
 
@@ -1181,79 +1184,86 @@ const Home = () => {
                                     <h3 className="text-xl font-semibold text-gray-800 mb-4 text-center">
                                         Ảnh gốc
                                     </h3>
-                                    {/* ... existing image container div ... */}
-                                    <div 
-                                        className={`relative border-2 glassmorphism border-blue-500 rounded-lg mx-auto overflow-hidden ${draggingPointIndex !== null ? 'border-dashed border-green-500' : ''}`} // Add visual feedback for drop zone
-                                        style={{ 
-                                            maxWidth: '100%', 
-                                            cursor: selectedPoint ? 'default' : (isColorizing || isAutoColorizing ? 'wait' : (draggingPointIndex !== null ? 'grabbing' : 'crosshair')) // Change cursor during drag
-                                        }}
-                                        onDragOver={handleDragOver} // Add drag over handler
-                                        onDrop={handleDrop} // Add drop handler
-                                    >
-                                        {/* ... img and mapped points ... */}
-                                        <img 
-                                            src={imagePreview === colorizedImage ? null : imagePreview} 
-                                            alt="Preview" 
-                                            className="w-full h-auto rounded-lg"
-                                            onClick={!(isColorizing || isAutoColorizing || draggingPointIndex !== null) ? handleImageClick : undefined} // Disable click during drag
-                                            ref={imageRef}
-                                            style={{ display: imagePreview === colorizedImage ? 'none' : 'block', pointerEvents: draggingPointIndex !== null ? 'none' : 'auto' }} // Prevent image interfering with drop
-                                        />
-
-                                        {/* Display existing color points on the image */}
-                                        {colorPoints.map((cp, index) => (
-                                            <div 
-                                                key={`point-${index}`}
-                                                className={`absolute w-5 h-5 rounded-full border-2 border-white shadow-lg flex items-center justify-center ${!(isColorizing || isAutoColorizing) ? 'cursor-pointer' : 'cursor-not-allowed'}`}
-                                                style={{
-                                                    backgroundColor: cp.displayColor,
-                                                    left: `${(cp.displayPoint.x / imageSize.width) * 100}%`, 
-                                                    top: `${(cp.displayPoint.y / imageSize.height) * 100}%`,
-                                                    transform: 'translate(-50%, -50%)',
-                                                    zIndex: 10,
-                                                    display: imagePreview === colorizedImage ? 'none' : 'block',
-                                                    opacity: draggingPointIndex === index ? 0.5 : 1
-                                                }}
-                                                title={`Nhấp để sửa/xóa | Kéo để di chuyển | Nhấp đôi để đổi màu | Màu: ${cp.displayColor}`}
-                                                draggable={!(isColorizing || isAutoColorizing)}
-                                                onDragStart={(e) => handleDragStart(e, index)}
-                                                onDragEnd={handleDragEnd}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (!(isColorizing || isAutoColorizing)) {
-                                                        setEditingPointIndex(index);
-                                                        setSelectedPoint(cp.displayPoint);
-                                                        setSelectedColor(cp.displayColor);
-                                                        setShowColorPicker(true);
-                                                    }
-                                                }}
-                                                onDoubleClick={(e) => handlePointDoubleClick(e, index)}
-                                            >
-                                                {/* Display point number */}
-                                                <span className="text-xs font-bold text-white" style={{ textShadow: '0px 0px 2px black' }}>
-                                                    {index + 1}
-                                                </span>
-                                            </div>
-                                        ))}
-
-                                        {/* Display the currently selected point before confirmation */}
-                                        {selectedPoint && (
-                                            <div 
-                                                className="absolute w-5 h-5 rounded-full border-2 border-white shadow-lg animate-pulse" 
-                                                style={{
-                                                    backgroundColor: selectedColor,
-                                                    // Calculate position based on selectedPoint and current image dimensions
-                                                    left: `${(selectedPoint.x / imageSize.width) * 100}%`, 
-                                                    top: `${(selectedPoint.y / imageSize.height) * 100}%`,
-                                                    transform: 'translate(-50%, -50%)', // Center the dot
-                                                    zIndex: 20
-                                                }}
+                                    {/* Image container with fixed aspect ratio wrapper */}
+                                    <div className="image-container-wrapper" style={{
+                                        // Calculate aspect ratio dynamically if image size is available
+                                        aspectRatio: imageSize.width && imageSize.height ? `${imageSize.width} / ${imageSize.height}` : 'auto',
+                                        maxHeight: '500px' // Set maximum height for portrait images
+                                    }}>
+                                        <div 
+                                            className={`relative border-2 glassmorphism border-blue-500 rounded-lg mx-auto overflow-hidden ${draggingPointIndex !== null ? 'border-dashed border-green-500' : ''} h-full`}
+                                            style={{ 
+                                                width: '100%',
+                                                height: '100%',
+                                                cursor: selectedPoint ? 'default' : (isColorizing || isAutoColorizing ? 'wait' : (draggingPointIndex !== null ? 'grabbing' : 'crosshair'))
+                                            }}
+                                            onDragOver={handleDragOver}
+                                            onDrop={handleDrop}
+                                        >
+                                            <img 
+                                                src={imagePreview === colorizedImage ? null : imagePreview} 
+                                                alt="Preview" 
+                                                className="w-full h-full object-contain rounded-lg"
+                                                onClick={!(isColorizing || isAutoColorizing || draggingPointIndex !== null) ? handleImageClick : undefined}
+                                                ref={imageRef}
+                                                style={{ 
+                                                    display: imagePreview === colorizedImage ? 'none' : 'block', 
+                                                    pointerEvents: draggingPointIndex !== null ? 'none' : 'auto'
+                                                }} 
                                             />
-                                        )}
+
+                                            {/* Display existing color points on the image */}
+                                            {colorPoints.map((cp, index) => (
+                                                <div 
+                                                    key={`point-${index}`}
+                                                    className={`absolute w-5 h-5 rounded-full border-2 border-white shadow-lg flex items-center justify-center ${!(isColorizing || isAutoColorizing) ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                                                    style={{
+                                                        backgroundColor: cp.displayColor,
+                                                        left: `${(cp.displayPoint.x / imageSize.width) * 100}%`, 
+                                                        top: `${(cp.displayPoint.y / imageSize.height) * 100}%`,
+                                                        transform: 'translate(-50%, -50%)',
+                                                        zIndex: 10,
+                                                        display: imagePreview === colorizedImage ? 'none' : 'block',
+                                                        opacity: draggingPointIndex === index ? 0.5 : 1
+                                                    }}
+                                                    title={`Nhấp để sửa/xóa | Kéo để di chuyển | Nhấp đôi để đổi màu | Màu: ${cp.displayColor}`}
+                                                    draggable={!(isColorizing || isAutoColorizing)}
+                                                    onDragStart={(e) => handleDragStart(e, index)}
+                                                    onDragEnd={handleDragEnd}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (!(isColorizing || isAutoColorizing)) {
+                                                            setEditingPointIndex(index);
+                                                            setSelectedPoint(cp.displayPoint);
+                                                            setSelectedColor(cp.displayColor);
+                                                            setShowColorPicker(true);
+                                                        }
+                                                    }}
+                                                    onDoubleClick={(e) => handlePointDoubleClick(e, index)}
+                                                >
+                                                    {/* Display point number */}
+                                                    <span className="text-xs font-bold text-white" style={{ textShadow: '0px 0px 2px black' }}>
+                                                        {index + 1}
+                                                    </span>
+                                                </div>
+                                            ))}
+
+                                            {/* Display the currently selected point before confirmation */}
+                                            {selectedPoint && (
+                                                <div 
+                                                    className="absolute w-5 h-5 rounded-full border-2 border-white shadow-lg animate-pulse" 
+                                                    style={{
+                                                        backgroundColor: selectedColor,
+                                                        // Calculate position based on selectedPoint and current image dimensions
+                                                        left: `${(selectedPoint.x / imageSize.width) * 100}%`, 
+                                                        top: `${(selectedPoint.y / imageSize.height) * 100}%`,
+                                                        transform: 'translate(-50%, -50%)', // Center the dot
+                                                        zIndex: 20
+                                                    }}
+                                                />
+                                            )}
+                                        </div>
                                     </div>
-                                    {/* ... existing paragraph ... */}
-                                    
 
                                     {/* Color Picker and Add Point Button */}
                                     {selectedPoint && (
@@ -1291,35 +1301,51 @@ const Home = () => {
                                     <h3 className="text-xl font-semibold text-gray-800 mb-4 text-center">
                                         {isColorizing || isAutoColorizing ? 'Đang xử lý...' : (colorizedImage ? 'Kết quả tô màu' : 'Ảnh chưa tô màu')}
                                     </h3>
-                                    <div className={`flex-grow  ${isColorizing || isAutoColorizing ? 'border-yellow-500 animate-pulse' : (colorizedImage ? 'border-green-500' : 'border-gray-300')} rounded-lg border-1 mx-auto w-full flex items-center justify-center glassmorphism overflow-hidden`} 
-                                       
-                                    >
-                                        {/* ... existing result display logic (Spin, Image, Placeholder) ... */}
-                                         {isColorizing || isAutoColorizing ? (
-                                            <Spin size="large" tip="Đang tô màu..." />
-                                        ) : colorizedImage ? (
-                                            <div className="relative w-full">
-                                                <img 
-                                                    src={colorizedImage} 
-                                                    alt="Colorized" 
-                                                    className="w-full h-auto rounded-lg object-contain" // Use object-contain
-                                                />
-                                                
-                                            </div>
-                                        ) : (
-                                            <div className="text-center text-gray-500 p-4">
-                                                <p>Kết quả tô màu sẽ hiển thị ở đây.</p>
-                                                {imagePreview && colorPoints.length === 0 && <p>Nhấn 'Tô màu tự động' hoặc chọn điểm màu.</p>}
-                                                {imagePreview && colorPoints.length > 0 && <p>Thêm điểm màu hoặc nhấn 'Tô màu với điểm đã chọn'.</p>
-                                                }
-                                            </div>
-                                        )}
+                                    {/* Result container with same fixed aspect ratio as original image */}
+                                    <div className="image-container-wrapper" style={{
+                                        aspectRatio: imageSize.width && imageSize.height ? `${imageSize.width} / imageSize.height}` : 'auto',
+                                        maxHeight: '500px' // Match the original image's maximum height
+                                    }}>
+                                        <div className={`h-full ${isColorizing || isAutoColorizing ? 'border-yellow-500 animate-pulse' : (colorizedImage ? 'border-green-500' : 'border-gray-300')} rounded-lg border-1 w-full flex items-center justify-center glassmorphism overflow-hidden`}>
+                                            {isColorizing || isAutoColorizing ? (
+                                                <Spin size="large" tip="Đang tô màu..." />
+                                            ) : colorizedImage ? (
+                                                <div className="relative w-full h-full">
+                                                    <img 
+                                                        src={colorizedImage} 
+                                                        alt="Colorized" 
+                                                        className="w-full h-full object-contain rounded-lg"
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div className="text-center text-gray-500 p-4">
+                                                    <p>Kết quả tô màu sẽ hiển thị ở đây.</p>
+                                                    {imagePreview && colorPoints.length === 0 && <p>Nhấn 'Tô màu tự động' hoặc chọn điểm màu.</p>}
+                                                    {imagePreview && colorPoints.length > 0 && <p>Thêm điểm màu hoặc nhấn 'Tô màu với điểm đã chọn'.</p>
+                                                    }
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    
-                                    {/* --- Main Colorize Button (MOVED BELOW) --- */}
-                                    {/* {imagePreview && !selectedPoint && ( ... button code removed from here ... )} */}
                                 </div>
-                            </div> {/* End of the two-column grid */}
+                            </div>
+
+                            {/* Add custom CSS for image containers */}
+                            <style jsx="true">{`
+                                .image-container-wrapper {
+                                    width: 100%;
+                                    display: flex;
+                                    justify-content: center;
+                                    align-items: center;
+                                }
+                                
+                                /* Ensure both containers have equal height on mobile */
+                                @media (max-width: 768px) {
+                                    .image-container-wrapper {
+                                        max-height: 350px;
+                                    }
+                                }
+                            `}</style>
 
                             {/* --- New Grid Container for Points List and Button --- */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8 pt-8 border-t border-gray-300 w-full"> {/* Add top margin/border */}
@@ -1433,38 +1459,7 @@ const Home = () => {
                         </> 
                     )}
 
-                    {apiError && (
-                        <div className="mb-8">
-                            <Alert
-                                message="Lỗi khi tô màu"
-                                description={
-                                    <div className="pt-3">
-                                        <p>{apiError.message}</p>
-                                        {apiError.isCors && (
-                                            <div className="mt-3 text-sm text-gray-600">
-                                                <p>Giải pháp có thể:</p>
-                                                <ol className="list-decimal pl-5">
-                                                    <li>Kiểm tra máy chủ Python đã được khởi động</li>
-                                                    <li>Kiểm tra cấu hình CORS trong máy chủ Python</li>
-                                                </ol>
-                                            </div>
-                                        )}
-                                    </div>
-                                }
-                                type="error"
-                                showIcon
-                                action={
-                                    <Button 
-                                        icon={<ReloadOutlined />} 
-                                        onClick={handleRetry}
-                                        type="primary"
-                                    >
-                                        Thử lại ({retryCount})
-                                    </Button>
-                                }
-                            />
-                        </div>
-                    )}
+                    
                 </div>
             </div>
             
@@ -1578,24 +1573,23 @@ const Home = () => {
                         Đóng
                     </Button>
                 ]}
-                className="image-compare-modal" // Add a class for better styling
+                className="image-compare-modal"
             >
                 <div className="mt-4 mb-6">
-                    <p className="text-gray-600 mb-4 text-center">
-                        Kéo qua lại để so sánh ảnh gốc và ảnh đã tô màu
-                    </p>
+                   
                     <div className="border border-gray-300 rounded-lg overflow-hidden compare-slider-container">
                         {imagePreview && colorizedImage && (
-                            <ReactCompareSlider
-                                itemOne={<ReactCompareSliderImage src={imagePreview} alt="Ảnh gốc" />}
-                                itemTwo={<ReactCompareSliderImage src={colorizedImage} alt="Ảnh tô màu" />}
-                                position={50}
-                                style={{
-                                    width: '100%',
-                                    height: 'auto',
-                                    aspectRatio: imageSize.width / imageSize.height
-                                }}
-                            />
+                            <div className="compare-slider-wrapper">
+                                <ReactCompareSlider
+                                    itemOne={<ReactCompareSliderImage src={imagePreview} alt="Ảnh gốc" />}
+                                    itemTwo={<ReactCompareSliderImage src={colorizedImage} alt="Ảnh tô màu" />}
+                                    position={50}
+                                    style={{
+                                        width: '100%',
+                                        height: 'auto'
+                                    }}
+                                />
+                            </div>
                         )}
                     </div>
                     <div className="flex justify-between text-sm text-gray-500 mt-2 px-2">
@@ -1747,6 +1741,27 @@ const Home = () => {
                     
                     .action-buttons-group {
                         gap: 4px !important;
+                    }
+                }
+                
+                /* Fix for tall images in comparison modal */
+                .compare-slider-wrapper {
+                    max-height: 70vh;
+                    overflow-y: auto;
+                    width: 100%;
+                }
+                
+                /* Ensure the compare slider fits mobile screens */
+                @media (max-width: 768px) {
+                    .compare-slider-wrapper {
+                        max-height: 60vh;
+                    }
+                }
+                
+                /* Ensure small screens can still see the compare slider */
+                @media (max-height: 600px) {
+                    .compare-slider-wrapper {
+                        max-height: 50vh;
                     }
                 }
                 
