@@ -763,6 +763,9 @@ const Home = () => {
         
         // Open the color picker
         setShowColorPicker(true);
+        
+        // Fetch color suggestions for this position
+        fetchColorSuggestions(pointToEdit.displayPoint);
     };
 
     // Add function to handle image download
@@ -1142,22 +1145,24 @@ const Home = () => {
 
                     <div className="mb-8 flex flex-col items-center">
                         {/* Add button to open projects */}
-                        <div className="flex flex-row justify-center items-center gap-2 sm:gap-4 mb-4 w-full max-w-md">
+                        <div className="flex flex-row justify-center items-center gap-2 sm:gap-3 mb-4 w-full max-w-md">
                             <Upload
                                 beforeUpload={beforeUpload}
                                 customRequest={handleUpload}
                                 showUploadList={false}
                                 accept=".jpg,.jpeg,.png"
-                                className="flex-1 flex justify-center items-center"
+                                className="flex-1"
                                 disabled={isColorizing || isAutoColorizing}
                             >
                                 <Button 
                                     icon={<UploadOutlined />} 
                                     size="large" 
-                                    className="w-full flex justify-center items-center"
+                                    className="w-full upload-btn "
                                     disabled={isColorizing || isAutoColorizing}
                                 >
-                                    <span className="hidden md:inline">Chọn ảnh để tô màu</span>
+                                    {/* Show text from sm breakpoint up */}
+                                    <span className="hidden sm:inline">Chọn ảnh</span> 
+                                    {/* Removed second span */}
                                 </Button>
                             </Upload>
                             
@@ -1165,13 +1170,59 @@ const Home = () => {
                                 icon={<FolderOpenOutlined />}
                                 onClick={handleOpenProjects}
                                 size="large"
-                                className="flex-1 flex justify-center items-center"
+                                className="flex-1 project-btn"
                                 disabled={isColorizing || isAutoColorizing}
                             >
-                                <span className="hidden sm:hidden md:inline">Mở dự án</span>
+                                {/* Show text from sm breakpoint up */}
+                                <span className="hidden sm:inline">Mở dự án</span> 
+                                {/* Combined text, removed second span */}
                             </Button>
                         </div>
-                        
+
+                        {/* Add specific styles for responsive buttons */}
+                        <style jsx="true">{`
+                            /* Smallest screens (icon only) */
+                            @media (max-width: 639px) { /* Below Tailwind 'sm' */
+                                .upload-btn .anticon, .project-btn .anticon {
+                                    margin-right: 0; /* No margin when text is hidden */
+                                    font-size: 18px; /* Slightly larger icon */
+                                }
+                                .upload-btn, .project-btn {
+                                    padding: 0 14px; /* Adjust padding for icon only */
+                                    min-width: 0;
+                                }
+                            }
+                            
+                            /* Small screens and up (icon + text) */
+                            @media (min-width: 640px) { /* Tailwind 'sm' and up */
+                                .upload-btn .anticon, .project-btn .anticon {
+                                    margin-right: 8px; /* Default margin when text is visible */
+                                    font-size: 16px; /* Reset icon size */
+                                }
+                                .upload-btn, .project-btn {
+                                     padding: 0 16px; /* Adjust padding */
+                                }
+                            }
+                            
+                            /* For all buttons - ensure proper icon alignment */
+                            .upload-btn .anticon, .project-btn .anticon {
+                                display: inline-flex;
+                                align-items: center;
+                                justify-content: center;
+                                vertical-align: middle; /* Align icon with text */
+                            }
+                            
+                            /* Ensure buttons are properly aligned */
+                            .flex-1 {
+                                display: flex;
+                            }
+                            
+                            .upload-btn, .project-btn {
+                                justify-content: center;
+                                align-items: center;
+                                display: flex;
+                            }
+                        `}</style>
                         
                         <p className="text-sm text-gray-500 text-center">Hỗ trợ JPG, PNG (tối đa 5MB), dài rộng tối đa 2000px</p>
                     </div>
@@ -1237,6 +1288,8 @@ const Home = () => {
                                                             setSelectedPoint(cp.displayPoint);
                                                             setSelectedColor(cp.displayColor);
                                                             setShowColorPicker(true);
+                                                            // Add this line to fetch suggestions when clicking to edit
+                                                            fetchColorSuggestions(cp.displayPoint);
                                                         }
                                                     }}
                                                     onDoubleClick={(e) => handlePointDoubleClick(e, index)}
@@ -1465,7 +1518,7 @@ const Home = () => {
             
             {/* Color Picker Modal */}
             <Modal
-                title="Chọn màu"
+                title={editingPointIndex !== null ? "Chỉnh sửa điểm màu" : "Chọn màu"}
                 open={showColorPicker}
                 onCancel={() => {
                     setShowColorPicker(false);
@@ -1482,6 +1535,21 @@ const Home = () => {
                     }} disabled={isColorizing || isAutoColorizing}>
                         Hủy
                     </Button>,
+                    // Add delete button when editing an existing point
+                    editingPointIndex !== null && (
+                        <Button 
+                            key="delete" 
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => {
+                                handleDeletePoint(editingPointIndex);
+                                setShowColorPicker(false);
+                            }}
+                            disabled={isColorizing || isAutoColorizing}
+                        >
+                            Xóa điểm màu
+                        </Button>
+                    ),
                     <Button 
                         key="submit" 
                         type="primary" 
@@ -1490,7 +1558,7 @@ const Home = () => {
                         // No loading state needed here
                         disabled={isColorizing || isAutoColorizing}
                     >
-                        {editingPointIndex !== null ? 'Cập nhật ' : 'Xác nhận'}
+                        {editingPointIndex !== null ? 'Cập nhật điểm màu' : 'Thêm điểm màu'}
                     </Button>,
                 ]}
             >
