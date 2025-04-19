@@ -11,9 +11,12 @@ RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 RUN apt-get update && apt-get install -y make
 RUN apt-get update && apt-get install ffmpeg libsm6 libxext6  -y
-Run bash -c "make fetch_model"
 RUN bash -c "make set_up"
 RUN bash -c "make authtoken"
 
 COPY . .
+Run bash -c "make fetch_model"
+
 EXPOSE $PORT
+
+CMD ["make", "run"]
