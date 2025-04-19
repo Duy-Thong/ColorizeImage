@@ -6,5 +6,7 @@ authtoken:
 	bash ./scripts/authtoken_ngrok.sh
 deploy: 
 	bash ./scripts/publib_with_ngrok.sh
+image:
+	docker build --no-cache -t colorize -f Dockerfile.api .
 run: 
-	docker run -it --rm -p 5000:5000 --name colorize_deploy colorize bash -c "python model_api.py & make deploy"
+	docker run -it --rm -p 5000:5000 --name colorize_deploy colorize bash -c "python model_api.py | make deploy"
