@@ -28,7 +28,8 @@ import {
   EyeOutlined,
   CalendarOutlined,
   TagOutlined,
-  FileImageOutlined
+  FileImageOutlined,
+  PlusOutlined // Add this import
 } from '@ant-design/icons';
 import axios from 'axios';
 import Navbar from '../../components/Navbar';
@@ -377,8 +378,7 @@ const Projects = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="glassmorphism bg-opacity-90 rounded-lg shadow-xl p-6 mb-10 mt-28">
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-            <Title level={2} className="m-0">Dự án tô màu của tôi</Title>
-            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-center"> {/* Added items-center */}
               <Input 
                 placeholder="Tìm kiếm dự án..." 
                 prefix={<SearchOutlined />}
@@ -399,17 +399,15 @@ const Projects = () => {
                 <Option value="name">Tên A-Z</Option>
                 <Option value="updated">Cập nhật gần đây</Option>
               </Select>
-              
-              <Select
-                value={hasColorizedFilter}
-                onChange={value => setHasColorizedFilter(value)}
-                style={{ width: '180px' }}
-                placeholder="Lọc dự án"
+            
+              {/* Add the New Project button */}
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => navigate('/home')}
               >
-                <Option value="all">Tất cả dự án</Option>
-                <Option value="with">Có kết quả tô màu</Option>
-                <Option value="without">Chưa có kết quả</Option>
-              </Select>
+                Tạo dự án mới
+              </Button>
             </div>
           </div>
 
